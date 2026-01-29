@@ -1,0 +1,39 @@
+== Info:   Trying 127.0.0.1:5555...
+== Info: Established connection to 127.0.0.1 (127.0.0.1 port 5555) from 127.0.0.1 port 59141 
+== Info: using HTTP/1.x
+=> Send header, 141 bytes (0x8d)
+0000: POST /api/signup HTTP/1.1
+001b: Host: 127.0.0.1:5555
+0031: User-Agent: curl/8.16.0
+004a: Accept: */*
+0057: Content-Type: application/json
+0077: Content-Length: 47
+008b: 
+=> Send data, 47 bytes (0x2f)
+0000: {"username":"test5","password":"password123"}
+== Info: upload completely sent off: 47 bytes
+<= Recv header, 26 bytes (0x1a)
+0000: HTTP/1.1 400 BAD REQUEST
+<= Recv header, 38 bytes (0x26)
+0000: Server: Werkzeug/3.1.5 Python/3.14.0
+<= Recv header, 37 bytes (0x25)
+0000: Date: Wed, 28 Jan 2026 21:15:13 GMT
+<= Recv header, 32 bytes (0x20)
+0000: Content-Type: application/json
+<= Recv header, 21 bytes (0x15)
+0000: Content-Length: 318
+<= Recv header, 52 bytes (0x34)
+0000: Access-Control-Allow-Origin: http://localhost:5173
+<= Recv header, 40 bytes (0x28)
+0000: Access-Control-Allow-Credentials: true
+<= Recv header, 19 bytes (0x13)
+0000: Connection: close
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 318 bytes (0x13e)
+0000: {.  "error": "400 Bad Request: (sqlite3.IntegrityError) UNIQUE c
+0040: onstraint failed: users.username\n[SQL: INSERT INTO users (usern
+0080: ame, _password_hash) VALUES (?, ?)]\n[parameters: ('test5', '$2b
+00c0: $12$RD2gKU/DNKsnVzY9E9fIduGWHnMj7beLiSeyhYOgC554xrF..d8j2')]\n(B
+0100: ackground on this error at: https://sqlalche.me/e/20/gkpj)".}.
+== Info: shutting down connection #0

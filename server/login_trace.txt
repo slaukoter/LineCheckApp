@@ -1,0 +1,16 @@
+== Info:   Trying 127.0.0.1:5555...
+== Info: Established connection to 127.0.0.1 (127.0.0.1 port 5555) from 127.0.0.1 port 59750 
+== Info: using HTTP/1.x
+=> Send header, 140 bytes (0x8c)
+0000: POST /api/login HTTP/1.1
+001a: Host: 127.0.0.1:5555
+0030: User-Agent: curl/8.16.0
+0049: Accept: */*
+0056: Content-Type: application/json
+0076: Content-Length: 47
+008a: 
+=> Send data, 47 bytes (0x2f)
+0000: {"username":"test5","password":"password123"}
+== Info: upload completely sent off: 47 bytes
+== Info: Unsupported HTTP/1 subversion in response
+== Info: closing connection #0
