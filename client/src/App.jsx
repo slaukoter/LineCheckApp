@@ -5,6 +5,7 @@ import ItemsPage from "./pages/ItemsPage";
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [mode, setMode] = useState("login");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -15,19 +16,33 @@ export default function App() {
   }, []);
 
   async function handleLogout() {
-    await api("/api/logout", { method: "DELETE" });
-    setUser(null);
+    setError("");
+    try {
+      await api("/api/logout", { method: "DELETE" });
+      setUser(null);
+      setMode("login");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
-  async function quickLogin(e) {
+  async function handleAuthSubmit(e) {
     e.preventDefault();
     setError("");
+
     const form = new FormData(e.target);
-    const username = form.get("username");
-    const password = form.get("password");
+    const username = (form.get("username") || "").toString().trim();
+    const password = (form.get("password") || "").toString();
+
+    if (!username || !password) {
+      setError("Username and password are required.");
+      return;
+    }
+
+    const endpoint = mode === "signup" ? "/api/signup" : "/api/login";
 
     try {
-      const u = await api("/api/login", {
+      const u = await api(endpoint, {
         method: "POST",
         body: JSON.stringify({ username, password }),
       });
@@ -37,18 +52,47 @@ export default function App() {
     }
   }
 
-  if (!authChecked) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (!authChecked) return <p>Loading...</p>;
 
   if (!user) {
     return (
-      <div style={{ maxWidth: 400, margin: "40px auto", padding: 16 }}>
-        <h1>Login</h1>
-        <form onSubmit={quickLogin} style={{ display: "grid", gap: 8 }}>
-          <input name="username" placeholder="username" />
-          <input name="password" type="password" placeholder="password" />
-          <button type="submit">Login</button>
+      <div className="auth">
+        <h1>{mode === "signup" ? "Sign Up" : "Login"}</h1>
+
+        <form onSubmit={handleAuthSubmit}>
+          <label>
+            Username
+            <input name="username" autoComplete="username" required />
+          </label>
+
+          <label>
+            Password
+            <input
+              name="password"
+              type="password"
+              autoComplete={
+                mode === "signup" ? "new-password" : "current-password"
+              }
+              required
+            />
+          </label>
+
+          <button type="submit">
+            {mode === "signup" ? "Create account" : "Login"}
+          </button>
         </form>
-        {error ? <p style={{ color: "crimson" }}>{error}</p> : null}
+
+        <button
+          type="button"
+          onClick={() => {
+            setError("");
+            setMode((m) => (m === "login" ? "signup" : "login"));
+          }}
+        >
+          {mode === "login" ? "Sign up" : "Already have an account? Log in"}
+        </button>
+
+        {error ? <p className="error">{error}</p> : null}
       </div>
     );
   }

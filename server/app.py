@@ -136,6 +136,11 @@ def items_delete(item_id):
     db.session.commit()
     return ("", 204)
 
+@app.get("/api/health")
+def health():
+    return {"ok": True}, 200
+
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5555, debug=True)
