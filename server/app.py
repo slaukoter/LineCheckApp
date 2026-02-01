@@ -1,7 +1,7 @@
 from flask import Flask, request, session, jsonify
 from flask_migrate import Migrate
 from flask_cors import CORS
-from werkzeug.exceptions import BadRequest, Unauthorized, HTTPException
+from werkzeug.exceptions import BadRequest, Unauthorized, HTTPException, NotFound
 from functools import wraps
 
 from config import Config
@@ -16,6 +16,17 @@ Migrate(app, db)
 
 CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 
+def require_user():
+    user = current_user()
+    if not user:
+        raise Unauthorized("You must be logged in.")
+    return user
+
+def get_user_item_or_404(user, item_id):
+    item = Item.query.filter_by(id=item_id, user_id=user.id).first()
+    if not item:
+        raise NotFound("Item not found.")
+    return item
 
 def current_user():
     uid = session.get("user_id")
@@ -28,7 +39,7 @@ def login_required(fn):
     def wrapper(*args, **kwargs):
         user = current_user()
         if not user:
-            return jsonify(error="Unauthorized"), 401
+            raise Unauthorized("You must be logged in.")
         return fn(*args, **kwargs)
     return wrapper
 
@@ -76,9 +87,7 @@ def login():
 
 @app.get("/api/check_session")
 def check_session():
-    user = current_user()
-    if not user:
-        raise Unauthorized(description="Not logged in.")
+    user = require_user()
     return jsonify(user.to_dict()), 200
 
 
@@ -92,8 +101,7 @@ def logout():
 @app.post("/api/items")
 @login_required
 def items_create():
-    user = current_user()
-   
+    user = require_user()
     data = request.get_json(silent=True) or {}
 
     name = (data.get("name") or "").strip()
@@ -115,26 +123,55 @@ def items_create():
         db.session.rollback()
         raise BadRequest(description=str(e))
 
+
 @app.get("/api/items")
 @login_required
 def items_index():
-    user = current_user()
-    items = Item.query.filter_by(user_id=user.id).all()
+    user = require_user()
+    items = Item.query.filter_by(user_id=user.id).order_by(Item.id.desc()).all()
     return jsonify([i.to_dict() for i in items]), 200
+
+
+
+@app.patch("/api/items/<int:item_id>")
+@login_required
+def items_update(item_id):
+    user = require_user()
+    item = get_user_item_or_404(user, item_id)
+
+    data = request.get_json(silent=True) or {}
+
+    if "name" in data:
+        item.name = data.get("name") 
+    if "unit" in data:
+        item.unit = data.get("unit") or None
+
+    if "quantity" in data:
+        q = data.get("quantity")
+        if q == "": 
+            q = 0
+        item.quantity = q  
+
+    if "par_level" in data:
+        p = data.get("par_level")
+        if p == "":
+            p = 0
+        item.par_level = p
+
+    db.session.commit()
+    return jsonify(item.to_dict()), 200
 
 
 @app.delete("/api/items/<int:item_id>")
 @login_required
 def items_delete(item_id):
-    user = current_user()
-    
-    item = Item.query.filter_by(id=item_id, user_id=user.id).first()
-    if not item:
-        return jsonify(error="Not found"), 404
+    user = require_user()
+    item = get_user_item_or_404(user, item_id)
 
     db.session.delete(item)
     db.session.commit()
     return ("", 204)
+
 
 @app.get("/api/health")
 def health():
