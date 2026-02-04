@@ -1,244 +1,223 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { Link, useParams } from "react-router-dom";
 
-export default function ItemsPage({ user, onLogout }) {
-  const [items, setItems] = useState(user.items ?? []);
+export default function ItemsPage() {
+  const { inventoryId } = useParams();
+
+  // ----- state -----
+  const [items, setItems] = useState([]);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [perPage] = useState(10);
+  const [total, setTotal] = useState(0);
+
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState(0);
-  const [parLevel, setParLevel] = useState(0);
   const [unit, setUnit] = useState("");
-  const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    quantity: 0,
-    par_level: 0,
-    unit: "",
-  });
+
+  // ----- load items -----
+  async function loadItems(p = page) {
+    setError("");
+    try {
+      const data = await api(
+        `/api/inventories/${inventoryId}/items?page=${p}&per_page=${perPage}`,
+      );
+      setItems(data.items);
+      setPage(data.page);
+      setTotal(data.total);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   useEffect(() => {
-    setError("");
-    api("/api/items")
-      .then(setItems)
-      .catch((e) => setError(e.message));
-  }, [user]);
+    setPage(1);
+    setMessage("");
+    loadItems(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inventoryId]);
 
+  // ----- add item -----
   async function handleAdd(e) {
     e.preventDefault();
     setError("");
-
-    if (!name.trim()) {
-      setError("Name is required.");
-      return;
-    }
-    if (Number(quantity) < 0 || Number(parLevel) < 0) {
-      setError("Quantity and par level must be 0 or more.");
-      return;
-    }
+    setMessage("");
 
     try {
-      const newItem = await api("/api/items", {
+      await api(`/api/inventories/${inventoryId}/items`, {
         method: "POST",
         body: JSON.stringify({
           name,
           quantity: Number(quantity),
-          par_level: Number(parLevel),
           unit: unit || null,
         }),
       });
 
-      setItems((prev) => [newItem, ...prev]);
       setName("");
       setQuantity(0);
-      setParLevel(0);
       setUnit("");
-    } catch (e) {
-      setError(e.message);
+      setMessage("Item added.");
+      await loadItems(1);
+    } catch (err) {
+      setError(err.message);
     }
   }
 
-  async function handleDelete(id) {
+  // ----- delete item -----
+  async function handleDeleteItem(itemId) {
     setError("");
-    try {
-      await api(`/api/items/${id}`, { method: "DELETE" });
-      setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  function startEdit(item) {
-    setEditingId(item.id);
-    setEditForm({
-      name: item.name ?? "",
-      quantity: item.quantity ?? 0,
-      par_level: item.par_level ?? 0,
-      unit: item.unit ?? "",
-    });
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-  }
-
-  async function saveEdit(id) {
-    setError("");
-
-    if (!editForm.name.trim()) {
-      setError("Name is required.");
-      return;
-    }
-    if (Number(editForm.quantity) < 0 || Number(editForm.par_level) < 0) {
-      setError("Quantity and par level must be 0 or more.");
-      return;
-    }
+    setMessage("");
 
     try {
-      const updated = await api(`/api/items/${id}`, {
+      await api(`/api/items/${itemId}`, { method: "DELETE" });
+      setMessage("Item deleted.");
+      await loadItems(1);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // ----- update item -----
+  async function handleQuickUpdate(item, patch) {
+    setError("");
+    setMessage("");
+
+    try {
+      await api(`/api/items/${item.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          name: editForm.name,
-          quantity: Number(editForm.quantity),
-          par_level: Number(editForm.par_level),
-          unit: editForm.unit || null,
-        }),
+        body: JSON.stringify(patch),
       });
-
-      setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
-      setEditingId(null);
-    } catch (e) {
-      setError(e.message);
+      setMessage("Item updated.");
+      await loadItems(page);
+    } catch (err) {
+      setError(err.message);
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
-      <h1>Inventory</h1>
-      <p>
-        Logged in as: <b>{user.username}</b>
-      </p>
+    <div className="container">
+      <div className="card">
+        <div className="header">
+          <div>
+            <h1 className="title">Inventory Items</h1>
+            <p className="subtle">
+              <Link to="/">← Back to Dashboard</Link>
+            </p>
+          </div>
+        </div>
 
-      <button onClick={onLogout}>Logout</button>
+        {error ? <div className="alert error">{error}</div> : null}
+        {message ? <div className="alert ok">{message}</div> : null}
+      </div>
 
-      <hr style={{ margin: "20px 0" }} />
+      <div style={{ height: 14 }} />
 
-      <h2>Add Item</h2>
-      <form onSubmit={handleAdd} style={{ display: "grid", gap: 8 }}>
-        <input
-          required
-          placeholder="Name (required)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+      <div className="grid">
+        <div className="card">
+          <h2 className="sectionTitle">Add Item</h2>
+          <form onSubmit={handleAdd} className="row">
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Item name"
+            />
+            <input
+              className="input"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              type="number"
+              placeholder="Qty"
+            />
+            <input
+              className="input"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="Unit (optional)"
+            />
+            <button className="btn btnPrimary" disabled={!name.trim()}>
+              Add
+            </button>
+          </form>
+        </div>
 
-        <input
-          type="number"
-          min="0"
-          placeholder="Quantity"
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-        />
+        <div className="card">
+          <h2 className="sectionTitle">Items</h2>
+          {items.length === 0 ? <p className="small">No items yet.</p> : null}
 
-        <input
-          type="number"
-          min="0"
-          placeholder="Par level"
-          value={parLevel}
-          onChange={(e) => setParLevel(Number(e.target.value))}
-        />
-
-        <input
-          placeholder="Unit (ex: lbs, cases)"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-        />
-
-        <button type="submit">Add</button>
-      </form>
-
-      {error ? <p style={{ color: "crimson" }}>{error}</p> : null}
-
-      <hr style={{ margin: "20px 0" }} />
-
-      <h2>Items</h2>
-      {items.length === 0 ? (
-        <p>No items yet.</p>
-      ) : (
-        <ul style={{ paddingLeft: 18 }}>
-          {items.map((item) => (
-            <li key={item.id} style={{ marginBottom: 8 }}>
-              {editingId === item.id ? (
-                <>
-                  <input
-                    value={editForm.name}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={editForm.quantity}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        quantity: Number(e.target.value),
-                      }))
-                    }
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={editForm.par_level}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        par_level: Number(e.target.value),
-                      }))
-                    }
-                  />
-                  <input
-                    value={editForm.unit}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, unit: e.target.value }))
-                    }
-                  />
-
-                  <button
-                    onClick={() => saveEdit(item.id)}
-                    style={{ marginLeft: 10 }}
-                  >
-                    save
-                  </button>
-                  <button onClick={cancelEdit} style={{ marginLeft: 6 }}>
-                    cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <b>{item.name}</b>{" "}
-                  <span>
-                    — qty: {item.quantity ?? 0} / par: {item.par_level ?? 0}{" "}
-                    {item.unit ? `(${item.unit})` : ""}
+          <ul className="list">
+            {items.map((item) => (
+              <li key={item.id} className="listItem">
+                <div>
+                  <strong>{item.name}</strong>{" "}
+                  <span className="small">
+                    — {item.quantity} {item.unit || ""}
                   </span>
+                </div>
+
+                <div className="row">
                   <button
-                    onClick={() => startEdit(item)}
-                    style={{ marginLeft: 10 }}
+                    className="btn"
+                    type="button"
+                    onClick={() =>
+                      handleQuickUpdate(item, { quantity: item.quantity + 1 })
+                    }
                   >
-                    edit
+                    +1
                   </button>
                   <button
-                    onClick={() => handleDelete(item.id)}
-                    style={{ marginLeft: 6 }}
+                    className="btn"
+                    type="button"
+                    onClick={() =>
+                      handleQuickUpdate(item, {
+                        quantity: Math.max(0, item.quantity - 1),
+                      })
+                    }
                   >
-                    delete
+                    -1
                   </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                  <button
+                    className="btn btnDanger"
+                    type="button"
+                    onClick={() => handleDeleteItem(item.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <button
+              className="btn"
+              type="button"
+              disabled={page <= 1}
+              onClick={() => loadItems(page - 1)}
+            >
+              Prev
+            </button>
+
+            <span className="small">
+              Page {page} / {totalPages}
+            </span>
+
+            <button
+              className="btn"
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => loadItems(page + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

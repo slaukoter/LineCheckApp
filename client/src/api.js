@@ -1,19 +1,26 @@
 export async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
     credentials: "include",
   });
 
+  if (res.status === 204) return null;
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    // ignore
+  }
+
   if (!res.ok) {
-    let msg = "Request failed";
-    try {
-      const data = await res.json();
-      msg = data.error || msg;
-    } catch {}
+    const msg = data?.error || "Request failed";
     throw new Error(msg);
   }
 
-  if (res.status === 204) return null;
-  return res.json();
+  return data;
 }

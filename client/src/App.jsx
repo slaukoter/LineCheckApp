@@ -1,101 +1,58 @@
 import { useEffect, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./api";
+
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import DashboardPage from "./pages/DashboardPage";
 import ItemsPage from "./pages/ItemsPage";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [mode, setMode] = useState("login");
-  const [error, setError] = useState("");
 
   useEffect(() => {
     api("/api/check_session")
-      .then((u) => setUser(u))
+      .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
 
   async function handleLogout() {
-    setError("");
-    try {
-      await api("/api/logout", { method: "DELETE" });
-      setUser(null);
-      setMode("login");
-    } catch (e) {
-      setError(e.message);
-    }
+    await api("/api/logout", { method: "DELETE" });
+    setUser(null);
   }
 
-  async function handleAuthSubmit(e) {
-    e.preventDefault();
-    setError("");
+  if (!authChecked) return <div>Loading...</div>;
 
-    const form = new FormData(e.target);
-    const username = (form.get("username") || "").toString().trim();
-    const password = (form.get("password") || "").toString();
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/" /> : <LoginPage onAuthed={setUser} />}
+      />
+      <Route
+        path="/signup"
+        element={user ? <Navigate to="/" /> : <SignupPage onAuthed={setUser} />}
+      />
 
-    if (!username || !password) {
-      setError("Username and password are required.");
-      return;
-    }
+      <Route
+        path="/"
+        element={
+          user ? (
+            <DashboardPage user={user} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
 
-    const endpoint = mode === "signup" ? "/api/signup" : "/api/login";
+      <Route
+        path="/inventories/:inventoryId"
+        element={user ? <ItemsPage /> : <Navigate to="/login" />}
+      />
 
-    try {
-      const u = await api(endpoint, {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      });
-      setUser(u);
-    } catch (e2) {
-      setError(e2.message);
-    }
-  }
-
-  if (!authChecked) return <p>Loading...</p>;
-
-  if (!user) {
-    return (
-      <div className="auth">
-        <h1>{mode === "signup" ? "Sign Up" : "Login"}</h1>
-
-        <form onSubmit={handleAuthSubmit}>
-          <label>
-            Username
-            <input name="username" autoComplete="username" required />
-          </label>
-
-          <label>
-            Password
-            <input
-              name="password"
-              type="password"
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
-              required
-            />
-          </label>
-
-          <button type="submit">
-            {mode === "signup" ? "Create account" : "Login"}
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => {
-            setError("");
-            setMode((m) => (m === "login" ? "signup" : "login"));
-          }}
-        >
-          {mode === "login" ? "Sign up" : "Already have an account? Log in"}
-        </button>
-
-        {error ? <p className="error">{error}</p> : null}
-      </div>
-    );
-  }
-
-  return <ItemsPage user={user} onLogout={handleLogout} />;
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
 }
